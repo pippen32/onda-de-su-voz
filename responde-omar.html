@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>La Onda de Su Voz — Contéstale con tu voz</title>
+<style>
+  body { margin:0; font-family: Georgia, 'Times New Roman', serif; background:#1d1214; color:#f3e6cf; text-align:center; padding:24px 16px 40px; }
+  h1 { font-size:25px; letter-spacing:2px; color:#e8c87a; margin:10px 0 4px; }
+  p.sub { color:#d8c9a8; font-style:italic; margin:0 0 18px; }
+  .card { margin:0 auto; max-width:420px; background:#2a1a1e; border:1px solid #8a6d2f; border-radius:12px; padding:20px 16px; }
+  canvas { width:100%; height:64px; background:#1d1214; border-radius:8px; }
+  button { font-family:inherit; font-size:17px; border:none; border-radius:10px; padding:13px 20px; margin-top:14px; cursor:pointer; width:100%; }
+  #btnRec { background:#7a1f2b; color:#ffe9b0; }
+  #btnSend { background:#1f7a3d; color:#fff; display:none; }
+  #player { width:100%; margin-top:14px; display:none; }
+  .nota { font-size:14px; color:#d8c9a8; margin-top:14px; line-height:1.5; }
+  .precio { color:#e8c87a; font-weight:bold; }
+  footer { margin-top:28px; font-size:13px; color:#9b8a67; }
+</style>
+</head>
+<body>
+  <h1>CONTÉSTALE CON TU VOZ</h1>
+  <p class="sub">Omar te mandó su voz… ahora respóndele con la tuya</p>
+  <div class="card">
+    <canvas id="liveWave" width="380" height="64"></canvas>
+    <button id="btnRec">🎙️ Grabar mi respuesta</button>
+    <audio id="player" controls></audio>
+    <button id="btnSend">💬 Enviar mi respuesta por WhatsApp</button>
+    <p class="nota">Al enviar, tu respuesta se convierte en <b>tu propio arte de La Onda</b> — con la onda de tu voz y su código pa' que Omar la escuche — por <span class="precio">$5</span>. En el WhatsApp que se abre, deja tu respuesta como <b>nota de voz</b> y confirma tu pedido.</p>
+    <p class="nota" id="micErr" style="display:none">Tu navegador no dejó grabar aquí. No hay problema: pulsa el botón de enviar y graba tu respuesta directo como nota de voz en el WhatsApp.</p>
+  </div>
+  <footer>La Onda de Su Voz — cada voz merece su respuesta.</footer>
+<script>
+(function(){
+  var btnRec=document.getElementById('btnRec'), btnSend=document.getElementById('btnSend'),
+      player=document.getElementById('player'), micErr=document.getElementById('micErr'),
+      canvas=document.getElementById('liveWave'), ctx=canvas.getContext('2d'),
+      mediaRecorder=null, chunks=[], stream=null, audioCtx=null, analyser=null, rafId=null, recording=false;
+  function drawIdle(){ ctx.fillStyle='#1d1214'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#8a6d2f'; for(var x=4;x<canvas.width;x+=7){ ctx.fillRect(x,30,3,4);} }
+  drawIdle();
+  function drawLive(){ if(!analyser) return; var data=new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); ctx.fillStyle='#1d1214'; ctx.fillRect(0,0,canvas.width,canvas.height); var bars=48, step=Math.floor(data.length/bars); for(var i=0;i<bars;i++){ var v=data[i*step]/255, h=Math.max(3,v*58), x=6+i*((canvas.width-12)/bars); ctx.fillStyle='#e8c87a'; ctx.fillRect(x,(64-h)/2,4,h);} rafId=requestAnimationFrame(drawLive); }
+  btnRec.addEventListener('click', function(){
+    if(recording){ if(mediaRecorder) mediaRecorder.stop(); return; }
+    if(!navigator.mediaDevices || !window.MediaRecorder){ micErr.style.display='block'; btnSend.style.display='block'; return; }
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){
+      stream=s; chunks=[];
+      try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=256; audioCtx.createMediaStreamSource(s).connect(analyser); drawLive(); }catch(e){}
+      mediaRecorder=new MediaRecorder(s);
+      mediaRecorder.ondataavailable=function(e){ if(e.data.size>0) chunks.push(e.data); };
+      mediaRecorder.onstop=function(){
+        recording=false; btnRec.textContent='🎙️ Grabar de nuevo';
+        if(rafId) cancelAnimationFrame(rafId); drawIdle();
+        if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); }
+        var blob=new Blob(chunks,{type:mediaRecorder.mimeType||'audio/webm'});
+        player.src=URL.createObjectURL(blob); player.style.display='block'; btnSend.style.display='block';
+      };
+      mediaRecorder.start(); recording=true; btnRec.textContent='⏹️ Detener grabación';
+    }).catch(function(){ micErr.style.display='block'; btnSend.style.display='block'; });
+  });
+  btnSend.addEventListener('click', function(){
+    var txt='Hola, soy la respuesta a la Onda de Omar. Quiero convertir mi respuesta en mi propio arte de La Onda de Su Voz ($5). Te dejo mi respuesta como nota de voz en este chat.';
+    window.open('https://wa.me/12406590154?text='+encodeURIComponent(txt),'_blank');
+  });
+})();
+</script>
+</body>
+</html>
